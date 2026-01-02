@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Austin Pathology Distribution Simulator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-900 text-[11px] md:text-xs">
+
+    <nav class="bg-slate-900 text-white p-4 shadow-xl">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-lg font-bold tracking-tight">Austin Distribution Engine <span class="text-blue-400 font-mono ml-2">v4.6</span></h1>
+            <div class="text-[10px] text-slate-400 font-mono uppercase tracking-widest">Ranked & Capped Simulation</div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto p-4 lg:p-6">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Panel: Configuration -->
+            <div class="lg:col-span-4 space-y-6">
+                <!-- Volume Controls -->
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                    <h2 class="text-sm font-bold mb-4 border-b pb-2 text-slate-700">Simulation Settings</h2>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block font-semibold text-slate-600 mb-1">Total Case Volume</label>
+                            <input type="number" id="caseVol" value="250" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold text-lg">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-600 mb-1 flex justify-between">
+                                Complexity Rate <span id="compVal" class="text-blue-600 font-bold">20%</span>
+                            </label>
+                            <input type="range" id="complexityFactor" min="0" max="100" step="5" value="20" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer mt-2">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Case Mix Table -->
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                    <div class="flex justify-between items-center border-b pb-2 mb-4">
+                        <h2 class="text-sm font-bold text-slate-700">Case Mix & Volume Caps</h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="text-slate-400 uppercase font-bold border-b border-slate-100 text-[9px]">
+                                    <th class="py-2">Type</th>
+                                    <th class="py-2 text-center">Freq %</th>
+                                    <th class="py-2 text-center">Base</th>
+                                    <th class="py-2 text-center">Cmplx</th>
+                                    <th class="py-2 text-center">Max</th>
+                                </tr>
+                            </thead>
+                            <tbody id="caseConfigBody" class="divide-y divide-slate-50">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <button onclick="runSimulation()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transform active:scale-95 transition-all text-xs uppercase tracking-widest">
+                    Run Austin Engine
+                </button>
+            </div>
+
+            <!-- Right Panel: Results -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 border-t-4 border-t-slate-900">
+                        <p class="text-[9px] text-slate-500 font-bold uppercase">Total RCV</p>
+                        <p id="statTotalRCV" class="text-xl font-black text-slate-900">0.0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 border-t-4 border-t-red-500">
+                        <p class="text-[9px] text-red-500 font-bold uppercase">Unassigned</p>
+                        <p id="statFailures" class="text-xl font-black text-red-600">0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 border-t-4 border-t-blue-500">
+                        <p class="text-[9px] text-blue-500 font-bold uppercase">Avg RCV / MD</p>
+                        <p id="statAvgRCV" class="text-xl font-black text-blue-700">0.0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 border-t-4 border-t-emerald-500">
+                        <p class="text-[9px] text-emerald-600 font-bold uppercase">Avg RCV / Non-Derm MD</p>
+                        <p id="statAvgNonDermRCV" class="text-xl font-black text-emerald-700">0.0</p>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-64">
+                    <canvas id="workloadChart"></canvas>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-900 text-white uppercase text-[9px]">
+                            <tr>
+                                <th class="px-4 py-3">Pathologist</th>
+                                <th class="px-4 py-3 text-center">Total Cases</th>
+                                <th class="px-4 py-3 text-center">Derm Cases</th>
+                                <th class="px-4 py-3 text-center">Complex</th>
+                                <th class="px-4 py-3 text-center">RCV</th>
+                                <th class="px-4 py-3">Distribution Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mdTableBody" class="divide-y divide-slate-100">
+                            <!-- Results here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const rawMDProfiles = {
+            "AMC": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728225774", "grp_1765728288401", "grp_1765728377937"] },
+            "BK": { "regions": ["Austin"], "preferenceGroups": ["grp_1765727145038"] },
+            "CJP": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728288401", "grp_1765728374781"] },
+            "CK": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728225774", "grp_1765728288401", "grp_1765728374781", "grp_1765728377937", "grp_1765750322807"] },
+            "DK": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728288401"] },
+            "DN1": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728288401", "grp_1765728377937"] },
+            "EGW": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728288401", "grp_1765728377937", "grp_1765750322807", "grp_1765750489923"] },
+            "JA1": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728288401", "grp_1765728377937"] },
+            "JAS": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728225774", "grp_1765728288401", "grp_1765750322807"] },
+            "JEB": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728288401", "grp_1765728377937", "grp_1765750489923"] },
+            "JH": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728288401", "grp_1765750322807", "grp_1765750489923"] },
+            "JJH": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728288401", "grp_1765750489923"] },
+            "JK": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728288401", "grp_1765728377937"] },
+            "JLC": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728288401", "grp_1765750489923"] },
+            "JLS": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728288401", "grp_1765728374781"] },
+            "LBT": { "regions": ["Austin"], "preferenceGroups": [{ "id": "grp_1765727145038", "rank": 1 }, "grp_1765728259705"] }, 
+            "MK": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728288401", "grp_1765728377937"] },
+            "ML": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728259705", "grp_1765728374781"] },
+            "MPZ": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728288401", "grp_1765750322807"] },
+            "MSC": { "regions": ["Austin"], "preferenceGroups": ["grp_1765727145038", "grp_1765728259705", "grp_1765728288401"] },
+            "MW1": { "regions": ["Austin"], "preferenceGroups": ["grp_1765750345931"] },
+            "NAO": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728288401", "grp_1765728374781"] },
+            "PBG": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728288401", "grp_1765750322807", "grp_1765750489923"] },
+            "RC": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728288401"] },
+            "SCB": { "regions": ["Austin"], "preferenceGroups": ["grp_1765727145038", "grp_1765728288401"] },
+            "SL": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728259705", "grp_1765728288401", "grp_1765750489923"] },
+            "TFK": { "regions": ["Austin"], "preferenceGroups": ["grp_1765727145038", "grp_1765728288401"] }
+        };
+
+        const mdPreferenceGroups = [
+            { "id": "grp_1765727145038", "name": "Derm", "types": ["Derm"] },
+            { "id": "grp_1765728225774", "name": "Peds", "types": ["Pediatric"] },
+            { "id": "grp_1765728259705", "name": "Cytology", "types": ["Cytology"] },
+            { "id": "grp_1765728288401", "name": "Gyn/Surg", "types": ["Gyn", "Surgical"] },
+            { "id": "grp_1765728374781", "name": "GI/Liver", "types": ["GI", "Liver"] },
+            { "id": "grp_1765728377937", "name": "Heme", "types": ["Heme"] },
+            { "id": "grp_1765750322807", "name": "Urology", "types": ["Urology"] },
+            { "id": "grp_1765750345931", "name": "Eye/Gyn", "types": ["Eye", "Gyn"] },
+            { "id": "grp_1765750489923", "name": "Breast", "types": ["Breast"] }
+        ];
+
+        let workloadRules = [
+            { "caseType": "Derm", "rvu": 1.0, "valueModifier": 2.0, "freq": 25, "caseMax": 60 },
+            { "caseType": "GI", "rvu": 1.0, "valueModifier": 2.0, "freq": 25, "caseMax": null },
+            { "caseType": "Gyn", "rvu": 1.0, "valueModifier": 2.0, "freq": 12, "caseMax": null },
+            { "caseType": "Surgical", "rvu": 1.0, "valueModifier": 2.0, "freq": 12, "caseMax": null },
+            { "caseType": "Breast", "rvu": 1.0, "valueModifier": 2.0, "freq": 4.33, "caseMax": null },
+            { "caseType": "Cytology", "rvu": 1.0, "valueModifier": 2.0, "freq": 4.33, "caseMax": null },
+            { "caseType": "Urology", "rvu": 1.0, "valueModifier": 2.0, "freq": 4.33, "caseMax": null },
+            { "caseType": "Heme", "rvu": 1.0, "valueModifier": 2.0, "freq": 4.33, "caseMax": null },
+            { "caseType": "Pediatric", "rvu": 1.0, "valueModifier": 2.0, "freq": 4.33, "caseMax": null },
+            { "caseType": "Eye", "rvu": 1.0, "valueModifier": 2.0, "freq": 4.33, "caseMax": null }
+        ];
+
+        let chart = null;
+
+        function initUI() {
+            const container = document.getElementById('caseConfigBody');
+            container.innerHTML = workloadRules.map((rule, idx) => `
+                <tr class="text-[10px]">
+                    <td class="py-2 font-bold text-slate-700">${rule.caseType}</td>
+                    <td class="py-2 text-center"><input type="number" step="0.01" value="${rule.freq}" data-index="${idx}" data-field="freq" class="cfg-in w-10 text-center border rounded"></td>
+                    <td class="py-2 text-center"><input type="number" step="0.1" value="${rule.rvu}" data-index="${idx}" data-field="rvu" class="cfg-in w-10 text-center border rounded"></td>
+                    <td class="py-2 text-center"><input type="number" step="0.1" value="${rule.valueModifier}" data-index="${idx}" data-field="valueModifier" class="cfg-in w-10 text-center border rounded"></td>
+                    <td class="py-2 text-center">
+                        <input type="text" value="${rule.caseMax || '∞'}" data-index="${idx}" data-field="caseMax" class="cfg-in w-10 text-center border rounded">
+                    </td>
+                </tr>
+            `).join('');
+            
+            document.querySelectorAll('.cfg-in').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    const idx = e.target.dataset.index;
+                    const field = e.target.dataset.field;
+                    let val = e.target.value;
+                    if (field === 'caseMax') {
+                        workloadRules[idx][field] = (val === '∞' || isNaN(val)) ? null : parseInt(val);
+                    } else {
+                        workloadRules[idx][field] = parseFloat(val) || 0;
+                    }
+                });
+            });
+        }
+
+        function getQualification(mdId, caseType) {
+            const md = rawMDProfiles[mdId];
+            if (!md) return { qualified: false, rank: null, handlesDerm: false };
+            
+            let rank = null;
+            let handlesDerm = false;
+
+            md.preferenceGroups.forEach(g => {
+                const gid = typeof g === 'object' ? g.id : g;
+                const group = mdPreferenceGroups.find(pg => pg.id === gid);
+                if (group && group.name === 'Derm') handlesDerm = true;
+            });
+
+            const isQualified = md.preferenceGroups.some(g => {
+                const gid = typeof g === 'object' ? g.id : g;
+                const gRank = typeof g === 'object' ? g.rank : null;
+                const group = mdPreferenceGroups.find(pg => pg.id === gid);
+                if (group && group.types.includes(caseType)) {
+                    rank = gRank;
+                    return true;
+                }
+                return false;
+            });
+
+            return { qualified: isQualified, rank: rank, handlesDerm: handlesDerm };
+        }
+
+        function runSimulation() {
+            const volume = parseInt(document.getElementById('caseVol').value);
+            const complexityRate = parseInt(document.getElementById('complexityFactor').value) / 100;
+            const totalFreq = workloadRules.reduce((a, b) => a + b.freq, 0);
+
+            const results = {};
+            Object.keys(rawMDProfiles).forEach(id => {
+                results[id] = { id, cases: 0, rcv: 0, complex: 0, typeCount: {} };
+            });
+
+            let unassigned = 0;
+            let totalRCV = 0;
+
+            for (let i = 0; i < volume; i++) {
+                let rnd = Math.random() * totalFreq;
+                let running = 0;
+                let selectedType = workloadRules[0];
+                for (let r of workloadRules) {
+                    running += r.freq;
+                    if (rnd <= running) { selectedType = r; break; }
+                }
+
+                const eligible = Object.keys(results).filter(id => {
+                    const qual = getQualification(id, selectedType.caseType);
+                    if (!qual.qualified) return false;
+                    const currentCount = results[id].typeCount[selectedType.caseType] || 0;
+                    if (selectedType.caseMax !== null && currentCount >= selectedType.caseMax) return false;
+                    return true;
+                });
+
+                if (eligible.length > 0) {
+                    eligible.sort((a, b) => {
+                        const qA = getQualification(a, selectedType.caseType);
+                        const qB = getQualification(b, selectedType.caseType);
+                        const rankA = qA.rank || 999;
+                        const rankB = qB.rank || 999;
+                        if (rankA !== rankB) return rankA - rankB;
+                        return results[a].rcv - results[b].rcv;
+                    });
+
+                    const winner = results[eligible[0]];
+                    const isComplex = Math.random() < complexityRate;
+                    const val = isComplex ? selectedType.valueModifier : selectedType.rvu;
+
+                    winner.cases++;
+                    winner.rcv += val;
+                    winner.typeCount[selectedType.caseType] = (winner.typeCount[selectedType.caseType] || 0) + 1;
+                    if (isComplex) winner.complex++;
+                    totalRCV += val;
+                } else {
+                    unassigned++;
+                }
+            }
+
+            updateDashboard(results, totalRCV, unassigned);
+        }
+
+        function updateDashboard(results, totalRCV, unassigned) {
+            const mdArray = Object.values(results);
+            const active = mdArray.filter(r => r.cases > 0).sort((a,b) => b.rcv - a.rcv);
+            
+            const nonDermMDs = active.filter(md => !getQualification(md.id, "").handlesDerm);
+            const nonDermTotalRCV = nonDermMDs.reduce((sum, md) => sum + md.rcv, 0);
+            const nonDermAvg = nonDermMDs.length ? (nonDermTotalRCV / nonDermMDs.length) : 0;
+
+            document.getElementById('statTotalRCV').innerText = totalRCV.toFixed(1);
+            document.getElementById('statFailures').innerText = unassigned;
+            document.getElementById('statAvgRCV').innerText = active.length ? (totalRCV / active.length).toFixed(1) : "0.0";
+            document.getElementById('statAvgNonDermRCV').innerText = nonDermAvg.toFixed(1);
+
+            const maxRCV = Math.max(...active.map(r => r.rcv), 1);
+            
+            document.getElementById('mdTableBody').innerHTML = active.map(r => {
+                const isDerm = getQualification(r.id, "").handlesDerm;
+                return `
+                <tr class="hover:bg-slate-50">
+                    <td class="px-4 py-3">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-slate-800">${r.id}</span>
+                            ${isDerm ? '<span class="px-1.5 py-0.5 bg-orange-100 text-orange-600 rounded text-[7px] font-bold">DERM</span>' : ''}
+                        </div>
+                        <div class="text-[8px] text-slate-400">RCV Density: ${(r.rcv/r.cases).toFixed(2)}</div>
+                    </td>
+                    <td class="px-4 py-3 text-center text-slate-600 font-medium">${r.cases}</td>
+                    <td class="px-4 py-3 text-center font-bold ${r.typeCount['Derm'] >= 60 ? 'text-orange-600' : 'text-slate-600'}">
+                        ${r.typeCount['Derm'] || 0}
+                    </td>
+                    <td class="px-4 py-3 text-center text-purple-700 font-bold">${r.complex || 0}</td>
+                    <td class="px-4 py-3 text-center font-mono font-bold text-blue-600">${r.rcv.toFixed(1)}</td>
+                    <td class="px-4 py-3">
+                        <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                            <div class="bg-blue-500 h-full transition-all duration-700" style="width: ${(r.rcv/maxRCV*100)}%"></div>
+                        </div>
+                    </td>
+                </tr>
+            `}).join('');
+
+            const ctx = document.getElementById('workloadChart').getContext('2d');
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: active.map(r => r.id),
+                    datasets: [{
+                        label: 'RCV Load',
+                        data: active.map(r => r.rcv),
+                        backgroundColor: active.map(r => getQualification(r.id, "").handlesDerm ? '#f97316' : '#3b82f6'),
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        y: { beginAtZero: true, grid: { display: false } }, 
+                        x: { grid: { display: false }, ticks: { font: { size: 9 } } } 
+                    }
+                }
+            });
+        }
+
+        document.getElementById('complexityFactor').addEventListener('input', (e) => {
+            document.getElementById('compVal').innerText = e.target.value + '%';
+        });
+
+        window.onload = () => {
+            initUI();
+            runSimulation();
+        };
+    </script>
+</body>
+</html>
