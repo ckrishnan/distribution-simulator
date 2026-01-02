@@ -24,6 +24,17 @@
     </nav>
 
     <main class="container mx-auto p-4 lg:p-6">
+        <div class="flex justify-end items-center gap-2 mb-4">
+            <button onclick="runSimulation()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-3 rounded-xl shadow-lg transform active:scale-95 transition-all text-xs uppercase tracking-widest">
+                Run Austin Engine
+            </button>
+            <button id="btnMultiSim" class="bg-slate-800 hover:bg-slate-900 text-white font-bold px-4 py-3 rounded-xl shadow-sm transform active:scale-95 transition-all text-xs uppercase tracking-widest">
+                60-Day Avg
+            </button>
+            <button id="btnHelp" class="bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold px-4 py-3 rounded-xl shadow-sm transform active:scale-95 transition-all text-xs uppercase tracking-widest">
+                Help
+            </button>
+        </div>
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
             <!-- Left Panel: Configuration -->
@@ -39,9 +50,9 @@
                         </div>
                         <div>
                             <label class="block font-semibold text-slate-600 mb-1 flex justify-between">
-                                Complexity Rate <span id="compVal" class="text-blue-600 font-bold">20%</span>
+                                Complexity Rate <span id="compVal" class="text-blue-600 font-bold">10%</span>
                             </label>
-                            <input type="range" id="complexityFactor" min="0" max="100" step="5" value="20" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer mt-2">
+                            <input type="range" id="complexityFactor" min="0" max="100" step="5" value="10" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer mt-2">
                         </div>
                     </div>
                 </div>
@@ -50,6 +61,10 @@
                 <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
                     <div class="flex justify-between items-center border-b pb-2 mb-4">
                         <h2 class="text-sm font-bold text-slate-700">Case Mix & Volume Caps</h2>
+                        <div class="flex items-center gap-2 text-[10px]">
+                            <button id="btnClearFreq" class="px-2 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-100 font-semibold">Clear</button>
+                            <button id="btnFillFreq" class="px-2 py-1 rounded bg-slate-900 text-white hover:bg-slate-800 font-semibold">Fill In</button>
+                        </div>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left">
@@ -69,9 +84,44 @@
                     </div>
                 </div>
 
-                <button onclick="runSimulation()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transform active:scale-95 transition-all text-xs uppercase tracking-widest">
-                    Run Austin Engine
-                </button>
+                <!-- Pathologist Roster Controls -->
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                    <div class="flex justify-between items-center border-b pb-2">
+                        <h2 class="text-sm font-bold text-slate-700">Pathologist Roster</h2>
+                        <span class="text-[10px] text-slate-400 font-mono">Session-only</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-3 bg-slate-50 border border-dashed border-slate-200 p-3 rounded-lg">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-semibold text-slate-600">Add / Modify</label>
+                            <input id="newMdId" type="text" placeholder="ID (e.g., AMC)" class="px-3 py-2 border rounded-lg text-sm font-semibold" />
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-semibold text-slate-600">Specialty Links</label>
+                            <select id="newMdGroups" multiple class="px-3 py-2 border rounded-lg text-sm h-28 custom-scrollbar">
+                                <!-- options injected -->
+                            </select>
+                            <span class="text-[9px] text-slate-500">Hold Ctrl/⌘ to multi-select; grp_* aligns with case types.</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button id="addMdBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-2 rounded-lg uppercase tracking-widest">Save / Add</button>
+                            <button id="resetMdBtn" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold px-3 py-2 rounded-lg uppercase tracking-widest">Reset roster</button>
+                        </div>
+                    </div>
+
+                    <div class="max-h-80 overflow-y-auto custom-scrollbar">
+                        <table class="w-full text-left text-[10px]">
+                            <thead class="text-slate-500 uppercase">
+                                <tr>
+                                    <th class="py-2">Pathologist</th>
+                                    <th class="py-2">Specialty Links</th>
+                                    <th class="py-2 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mdRosterBody" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             <!-- Right Panel: Results -->
@@ -96,8 +146,30 @@
                     </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-64">
+                <div id="chartSection" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-64">
                     <canvas id="workloadChart"></canvas>
+                </div>
+
+                <div id="multiSimCard" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden">
+                    <div class="flex justify-between items-center px-4 py-3 bg-slate-50 border-b border-slate-200">
+                        <h3 class="text-sm font-bold text-slate-700">60-Day Average (Snapshot)</h3>
+                        <span class="text-[10px] text-slate-500">Uses current settings</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-[11px]">
+                            <thead class="bg-slate-900 text-white uppercase text-[9px]">
+                                <tr>
+                                    <th class="px-4 py-2">Pathologist</th>
+                                    <th class="px-4 py-2 text-center">Avg Cases</th>
+                                    <th class="px-4 py-2 text-center">Avg RCV</th>
+                                    <th class="px-4 py-2 text-center">Active %</th>
+                                </tr>
+                            </thead>
+                            <tbody id="multiSimBody" class="divide-y divide-slate-100">
+                                <tr><td colspan="4" class="px-4 py-3 text-center text-slate-400">Run "60-Day Avg" to populate</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -107,6 +179,7 @@
                                 <th class="px-4 py-3">Pathologist</th>
                                 <th class="px-4 py-3 text-center">Total Cases</th>
                                 <th class="px-4 py-3 text-center">Derm Cases</th>
+                                <th class="px-4 py-3 text-center">GI Cases</th>
                                 <th class="px-4 py-3 text-center">Complex</th>
                                 <th class="px-4 py-3 text-center">RCV</th>
                                 <th class="px-4 py-3">Distribution Balance</th>
@@ -121,10 +194,33 @@
         </div>
     </main>
 
+    <!-- Help Modal -->
+    <div id="helpModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white w-full max-w-6xl rounded-3xl shadow-2xl border border-slate-200">
+            <div class="flex items-center justify-between px-8 py-6 border-b border-slate-200">
+                <h3 class="text-[24px] font-bold text-slate-800">How distribution works</h3>
+                <button id="btnHelpClose" class="text-slate-500 hover:text-slate-800 text-3xl font-bold leading-none">&times;</button>
+            </div>
+            <div class="p-8 text-[24px] text-slate-700 space-y-4 leading-relaxed">
+                <ul class="list-disc pl-8 leading-[2] space-y-4">
+                    <li>Case type is drawn using its freq% in Case Mix for each case in the run.</li>
+                    <li>Eligible MDs: have the case type in their specialty groups and are below that case type's cap.</li>
+                    <li>Eligible list is shuffled; sorted by rank (lower first), then lowest RCV so far, then random tie-break.</li>
+                    <li>Complex cases (by complexity rate) use value modifier; others use RVU.</li>
+                    <li>Derm has a default cap (60) per MD; other caps apply if set in Max.</li>
+                    <li>Run Austin Engine = single simulation; 60-Day Avg = 60 runs with current settings/roster.</li>
+                    <li>Roster edits are session-only; Clear/Fill manage case mix percentages.</li>
+                </ul>
+            </div>
+            <div class="px-8 py-6 border-t border-slate-200 flex justify-end">
+                <button id="btnHelpClose2" class="px-5 py-3 rounded-lg bg-slate-900 text-white text-[16px] font-bold">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        const rawMDProfiles = {
+        const baseMDProfiles = {
             "AMC": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728225774", "grp_1765728288401", "grp_1765728377937"] },
-            "BK": { "regions": ["Austin"], "preferenceGroups": ["grp_1765727145038"] },
             "CJP": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728288401", "grp_1765728374781"] },
             "CK": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728225774", "grp_1765728288401", "grp_1765728374781", "grp_1765728377937", "grp_1765750322807"] },
             "DK": { "regions": ["Austin"], "preferenceGroups": ["grp_1765728288401"] },
@@ -167,17 +263,67 @@
         let workloadRules = [
             { "caseType": "Derm", "rvu": 1.0, "valueModifier": 2.0, "freq": 25, "caseMax": 60 },
             { "caseType": "GI", "rvu": 1.0, "valueModifier": 2.0, "freq": 25, "caseMax": null },
-            { "caseType": "Gyn", "rvu": 1.0, "valueModifier": 2.0, "freq": 12, "caseMax": null },
-            { "caseType": "Surgical", "rvu": 1.0, "valueModifier": 2.0, "freq": 12, "caseMax": null },
-            { "caseType": "Breast", "rvu": 1.0, "valueModifier": 2.0, "freq": 4.33, "caseMax": null },
-            { "caseType": "Cytology", "rvu": 1.0, "valueModifier": 2.0, "freq": 4.33, "caseMax": null },
-            { "caseType": "Urology", "rvu": 1.0, "valueModifier": 2.0, "freq": 4.33, "caseMax": null },
-            { "caseType": "Heme", "rvu": 1.0, "valueModifier": 2.0, "freq": 4.33, "caseMax": null },
-            { "caseType": "Pediatric", "rvu": 1.0, "valueModifier": 2.0, "freq": 4.33, "caseMax": null },
-            { "caseType": "Eye", "rvu": 1.0, "valueModifier": 2.0, "freq": 4.33, "caseMax": null }
+            { "caseType": "Gyn", "rvu": 1.0, "valueModifier": 2.0, "freq": 17, "caseMax": null },
+            { "caseType": "Surgical", "rvu": 1.0, "valueModifier": 2.0, "freq": 17, "caseMax": null },
+            { "caseType": "Breast", "rvu": 1.0, "valueModifier": 2.0, "freq": 3, "caseMax": null },
+            { "caseType": "Cytology", "rvu": 1.0, "valueModifier": 2.0, "freq": 3, "caseMax": null },
+            { "caseType": "Urology", "rvu": 1.0, "valueModifier": 2.0, "freq": 3, "caseMax": null },
+            { "caseType": "Heme", "rvu": 1.0, "valueModifier": 2.0, "freq": 2, "caseMax": null },
+            { "caseType": "Pediatric", "rvu": 1.0, "valueModifier": 2.0, "freq": 3, "caseMax": null },
+            { "caseType": "Eye", "rvu": 1.0, "valueModifier": 2.0, "freq": 2, "caseMax": null }
         ];
 
+        let mdProfiles = cloneMDProfiles();
         let chart = null;
+
+        function shuffleArray(arr) {
+            const a = [...arr];
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+
+        function showView(view) {
+            const chartEl = document.getElementById('chartSection');
+            const multiEl = document.getElementById('multiSimCard');
+            if (chartEl) chartEl.classList.toggle('hidden', view !== 'chart');
+            if (multiEl) multiEl.classList.toggle('hidden', view !== 'multi');
+        }
+
+        function clearFrequencies() {
+            workloadRules.forEach(rule => { rule.freq = null; });
+            document.querySelectorAll('.cfg-in[data-field="freq"]').forEach(input => { input.value = ''; });
+        }
+
+        function fillFrequencies() {
+            const setTotal = workloadRules.reduce((sum, rule) => {
+                const val = parseFloat(rule.freq);
+                return sum + (isNaN(val) ? 0 : val);
+            }, 0);
+
+            const empties = workloadRules.filter(rule => rule.freq === null || rule.freq === '' || isNaN(parseFloat(rule.freq))).length;
+            const remaining = Math.max(0, 100 - setTotal);
+            const fillVal = empties > 0 ? parseFloat((remaining / empties).toFixed(2)) : 0;
+
+            workloadRules = workloadRules.map(rule => {
+                const val = parseFloat(rule.freq);
+                if (isNaN(val)) {
+                    return { ...rule, freq: fillVal };
+                }
+                return { ...rule, freq: parseFloat(val.toFixed(2)) };
+            });
+
+            document.querySelectorAll('.cfg-in[data-field="freq"]').forEach((input, idx) => {
+                const val = workloadRules[idx].freq;
+                input.value = (val === null || val === undefined) ? '' : val;
+            });
+        }
+
+        function cloneMDProfiles() {
+            return JSON.parse(JSON.stringify(baseMDProfiles));
+        }
 
         function initUI() {
             const container = document.getElementById('caseConfigBody');
@@ -200,15 +346,25 @@
                     let val = e.target.value;
                     if (field === 'caseMax') {
                         workloadRules[idx][field] = (val === '∞' || isNaN(val)) ? null : parseInt(val);
+                    } else if (field === 'freq') {
+                        workloadRules[idx][field] = val.trim() === '' ? null : (parseFloat(val) || 0);
                     } else {
                         workloadRules[idx][field] = parseFloat(val) || 0;
                     }
                 });
             });
+
+            const clearBtn = document.getElementById('btnClearFreq');
+            const fillBtn = document.getElementById('btnFillFreq');
+            if (clearBtn) clearBtn.onclick = clearFrequencies;
+            if (fillBtn) fillBtn.onclick = fillFrequencies;
+
+            populatePreferenceSelect(document.getElementById('newMdGroups'));
+            renderRoster();
         }
 
         function getQualification(mdId, caseType) {
-            const md = rawMDProfiles[mdId];
+            const md = mdProfiles[mdId];
             if (!md) return { qualified: false, rank: null, handlesDerm: false };
             
             let rank = null;
@@ -234,13 +390,112 @@
             return { qualified: isQualified, rank: rank, handlesDerm: handlesDerm };
         }
 
-        function runSimulation() {
+        function populatePreferenceSelect(selectEl, selected = []) {
+            if (!selectEl) return;
+            const selectedSet = new Set(selected);
+            const sortedGroups = [...mdPreferenceGroups].sort((a, b) => a.name.localeCompare(b.name));
+            selectEl.innerHTML = sortedGroups.map(pg => `
+                <option value="${pg.id}" ${selectedSet.has(pg.id) ? 'selected' : ''}>${pg.name}</option>
+            `).join('');
+        }
+
+        function renderRoster() {
+            const tbody = document.getElementById('mdRosterBody');
+            if (!tbody) return;
+
+            const entries = Object.entries(mdProfiles).sort((a, b) => a[0].localeCompare(b[0]));
+            if (entries.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="py-3 text-center text-slate-400">No pathologists configured. Add one above.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = entries.map(([id, profile]) => {
+                const groups = profile.preferenceGroups.map(g => typeof g === 'object' ? g.id : g);
+                const groupNames = groups.map(gid => mdPreferenceGroups.find(pg => pg.id === gid)?.name || gid).join(', ');
+                const sortedGroups = [...mdPreferenceGroups].sort((a, b) => a.name.localeCompare(b.name));
+                return `
+                    <tr class="align-top" data-id="${id}">
+                        <td class="py-2 font-bold text-slate-800">${id}</td>
+                        <td class="py-2">
+                            <select multiple class="md-group-select w-full border rounded px-2 py-1 text-[10px] h-16 custom-scrollbar" data-id="${id}">
+                                ${sortedGroups.map(pg => `<option value="${pg.id}" ${groups.includes(pg.id) ? 'selected' : ''}>${pg.name}</option>`).join('')}
+                            </select>
+                            <div class="text-[9px] text-slate-500 mt-1">${groupNames || 'No specialties selected'}</div>
+                        </td>
+                        <td class="py-2 text-right space-x-1">
+                            <button class="md-save-btn bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-[10px] font-bold uppercase" data-id="${id}">Update</button>
+                            <button class="md-delete-btn bg-rose-100 hover:bg-rose-200 text-rose-600 px-2 py-1 rounded text-[10px] font-bold uppercase" data-id="${id}">Remove</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            bindRosterEvents();
+        }
+
+        function bindRosterEvents() {
+            document.querySelectorAll('.md-save-btn').forEach(btn => {
+                btn.onclick = () => {
+                    const id = btn.dataset.id;
+                    const select = document.querySelector(`.md-group-select[data-id="${id}"]`);
+                    if (!select) return;
+                    const selected = Array.from(select.selectedOptions).map(o => o.value);
+                    mdProfiles[id].preferenceGroups = selected;
+                    renderRoster();
+                    runSimulation();
+                };
+            });
+
+            document.querySelectorAll('.md-delete-btn').forEach(btn => {
+                btn.onclick = () => {
+                    const id = btn.dataset.id;
+                    if (!confirm(`Remove ${id} from this session?`)) return;
+                    delete mdProfiles[id];
+                    renderRoster();
+                    runSimulation();
+                };
+            });
+        }
+
+        function wireRosterControls() {
+            const addBtn = document.getElementById('addMdBtn');
+            const resetBtn = document.getElementById('resetMdBtn');
+            const idInput = document.getElementById('newMdId');
+            const groupsSelect = document.getElementById('newMdGroups');
+
+            if (addBtn) {
+                addBtn.onclick = () => {
+                    const id = (idInput.value || '').trim().toUpperCase();
+                    const selected = Array.from(groupsSelect.selectedOptions).map(o => o.value);
+                    if (!id) { alert('Enter a pathologist ID'); return; }
+                    if (selected.length === 0) { alert('Select at least one specialty group'); return; }
+                    mdProfiles[id] = { regions: ['Austin'], preferenceGroups: selected };
+                    idInput.value = '';
+                    Array.from(groupsSelect.options).forEach(o => o.selected = false);
+                    renderRoster();
+                    runSimulation();
+                };
+            }
+
+            if (resetBtn) {
+                resetBtn.onclick = () => {
+                    if (!confirm('Reset roster to defaults for this session?')) return;
+                    mdProfiles = cloneMDProfiles();
+                    populatePreferenceSelect(groupsSelect);
+                    idInput.value = '';
+                    renderRoster();
+                    runSimulation();
+                };
+            }
+        }
+
+        function simulateDistribution() {
             const volume = parseInt(document.getElementById('caseVol').value);
             const complexityRate = parseInt(document.getElementById('complexityFactor').value) / 100;
-            const totalFreq = workloadRules.reduce((a, b) => a + b.freq, 0);
+            const totalFreq = workloadRules.reduce((a, b) => a + (b.freq || 0), 0) || 1; // avoid divide by zero
 
             const results = {};
-            Object.keys(rawMDProfiles).forEach(id => {
+            Object.keys(mdProfiles).forEach(id => {
                 results[id] = { id, cases: 0, rcv: 0, complex: 0, typeCount: {} };
             });
 
@@ -252,17 +507,17 @@
                 let running = 0;
                 let selectedType = workloadRules[0];
                 for (let r of workloadRules) {
-                    running += r.freq;
+                    running += (r.freq || 0);
                     if (rnd <= running) { selectedType = r; break; }
                 }
 
-                const eligible = Object.keys(results).filter(id => {
+                const eligible = shuffleArray(Object.keys(results).filter(id => {
                     const qual = getQualification(id, selectedType.caseType);
                     if (!qual.qualified) return false;
                     const currentCount = results[id].typeCount[selectedType.caseType] || 0;
                     if (selectedType.caseMax !== null && currentCount >= selectedType.caseMax) return false;
                     return true;
-                });
+                }));
 
                 if (eligible.length > 0) {
                     eligible.sort((a, b) => {
@@ -271,7 +526,9 @@
                         const rankA = qA.rank || 999;
                         const rankB = qB.rank || 999;
                         if (rankA !== rankB) return rankA - rankB;
-                        return results[a].rcv - results[b].rcv;
+                        const rcvDiff = results[a].rcv - results[b].rcv;
+                        if (rcvDiff !== 0) return rcvDiff;
+                        return Math.random() - 0.5;
                     });
 
                     const winner = results[eligible[0]];
@@ -288,7 +545,13 @@
                 }
             }
 
+            return { results, totalRCV, unassigned };
+        }
+
+        function runSimulation() {
+            const { results, totalRCV, unassigned } = simulateDistribution();
             updateDashboard(results, totalRCV, unassigned);
+            showView('chart');
         }
 
         function updateDashboard(results, totalRCV, unassigned) {
@@ -304,7 +567,7 @@
             document.getElementById('statAvgRCV').innerText = active.length ? (totalRCV / active.length).toFixed(1) : "0.0";
             document.getElementById('statAvgNonDermRCV').innerText = nonDermAvg.toFixed(1);
 
-            const maxRCV = Math.max(...active.map(r => r.rcv), 1);
+            const maxRCV = active.length ? Math.max(...active.map(r => r.rcv), 1) : 1;
             
             document.getElementById('mdTableBody').innerHTML = active.map(r => {
                 const isDerm = getQualification(r.id, "").handlesDerm;
@@ -321,6 +584,7 @@
                     <td class="px-4 py-3 text-center font-bold ${r.typeCount['Derm'] >= 60 ? 'text-orange-600' : 'text-slate-600'}">
                         ${r.typeCount['Derm'] || 0}
                     </td>
+                    <td class="px-4 py-3 text-center text-slate-600 font-bold">${r.typeCount['GI'] || 0}</td>
                     <td class="px-4 py-3 text-center text-purple-700 font-bold">${r.complex || 0}</td>
                     <td class="px-4 py-3 text-center font-mono font-bold text-blue-600">${r.rcv.toFixed(1)}</td>
                     <td class="px-4 py-3">
@@ -359,9 +623,77 @@
             document.getElementById('compVal').innerText = e.target.value + '%';
         });
 
+        function runMultiSim(days = 60) {
+            const mdIds = Object.keys(mdProfiles);
+            if (mdIds.length === 0) {
+                updateMultiSimSummary([]);
+                return;
+            }
+
+            const body = document.getElementById('multiSimBody');
+            if (body) body.innerHTML = '<tr><td colspan="4" class="px-4 py-3 text-center text-slate-400">Running…</td></tr>';
+
+            const totals = {};
+            mdIds.forEach(id => { totals[id] = { cases: 0, rcv: 0, active: 0 }; });
+
+            for (let d = 0; d < days; d++) {
+                const { results } = simulateDistribution();
+                mdIds.forEach(id => {
+                    const r = results[id];
+                    totals[id].cases += r.cases;
+                    totals[id].rcv += r.rcv;
+                    if (r.cases > 0) totals[id].active += 1;
+                });
+            }
+
+            const summary = mdIds.map(id => {
+                const t = totals[id];
+                return {
+                    id,
+                    avgCases: t.cases / days,
+                    avgRCV: t.rcv / days,
+                    activePct: (t.active / days) * 100
+                };
+            });
+
+            updateMultiSimSummary(summary);
+        }
+
+        function updateMultiSimSummary(summary) {
+            const body = document.getElementById('multiSimBody');
+            if (!body) return;
+            if (!summary || summary.length === 0) {
+                body.innerHTML = '<tr><td colspan="4" class="px-4 py-3 text-center text-slate-400">No data. Run "60-Day Avg".</td></tr>';
+                return;
+            }
+            const sorted = [...summary].sort((a, b) => b.avgCases - a.avgCases);
+            body.innerHTML = sorted.map(s => `
+                <tr class="text-[11px]">
+                    <td class="px-4 py-2 font-bold text-slate-800">${s.id}</td>
+                    <td class="px-4 py-2 text-center text-slate-700 font-semibold">${s.avgCases.toFixed(2)}</td>
+                    <td class="px-4 py-2 text-center text-blue-700 font-semibold">${s.avgRCV.toFixed(2)}</td>
+                    <td class="px-4 py-2 text-center text-slate-600">${s.activePct.toFixed(0)}%</td>
+                </tr>
+            `).join('');
+            showView('multi');
+        }
+
         window.onload = () => {
             initUI();
+            wireRosterControls();
             runSimulation();
+            const multiBtn = document.getElementById('btnMultiSim');
+            if (multiBtn) multiBtn.addEventListener('click', () => runMultiSim(60));
+            const helpBtn = document.getElementById('btnHelp');
+            const helpModal = document.getElementById('helpModal');
+            const closeButtons = [document.getElementById('btnHelpClose'), document.getElementById('btnHelpClose2')];
+            if (helpBtn && helpModal) {
+                helpBtn.onclick = () => helpModal.classList.remove('hidden');
+                closeButtons.forEach(btn => btn && (btn.onclick = () => helpModal.classList.add('hidden')));
+                helpModal.addEventListener('click', (e) => {
+                    if (e.target === helpModal) helpModal.classList.add('hidden');
+                });
+            }
         };
     </script>
 </body>
